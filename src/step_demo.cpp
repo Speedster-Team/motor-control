@@ -22,8 +22,9 @@
 
 // FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> can_intf;
 
-// auto controller = PositionController(.2, 0.006, 0.008);
-// // auto controller = PositionController(.0, 0.0, 0.0);
+// // auto controller = PositionController(.27, 0.012, 0.02);
+// // auto controller = PositionController(.2, 0.006, 0.008);
+// auto controller = PositionController(.0, 0.0, 0.0);
 
 // void onCanMessage(const CanMsg & msg);
 
@@ -116,7 +117,7 @@
 //                         // This has been found to reduce the number of dropped messages, however it can be removed
 //                         // for applications requiring loop times over 100Hz.
 
-//   if (control_count > 5000)
+//   if (control_count > 1000)
 //   {
 //     control_count = 0;
 //     amplitude*=-1;
@@ -143,12 +144,12 @@
 //     Serial.print(">odrv0_pos:");
 //     Serial.print(actual);
 //     Serial.print("\n");
-//     Serial.print(">cmd_pos:");
-//     Serial.println(setpoint);
-//     Serial.print("\n");
-//     Serial.print(">u:");
-//     Serial.println(u);
-//     Serial.print("\n");
+//     // Serial.print(">cmd_pos:");
+//     // Serial.println(setpoint);
+//     // Serial.print("\n");
+//     // Serial.print(">u:");
+//     // Serial.println(u);
+//     // Serial.print("\n");
 //     Serial.print(">velocity:");
 //     Serial.println(velocity);
 //     Serial.print("\n");
@@ -173,7 +174,7 @@
 //   controller.set_ffwd_control(false);
 //   controller.set_gvty_compensation(false);
 //   controller.set_i_clamp_val(10.0);
-//   controller.set_u_clamp_val(0.2);
+//   controller.set_u_clamp_val(1.2);
 
 //   Serial.println("Starting ODriveCAN demo");
 

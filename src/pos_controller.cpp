@@ -61,7 +61,7 @@ PositionController::PositionController(double Kp, double Ki, double Kd)
   feed_fwd_enable_ (true),
   ffwd_term_ (0.0),
   gvty_fwd_enable_ (true),
-  gvty_term_ (0.0)
+  gvty_term_ (0.5)
 {
     Serial.println("Initializing PID position controller...");
 }
@@ -90,7 +90,6 @@ double PositionController::pump_controller(double setpoint, double actual, doubl
 {
 
     err_ = setpoint - actual;
-    if (gvty_fwd_enable_) {gvty_term_ = -cos(actual * 2 * PI / GEAR_RATIO);}
     if (feed_fwd_enable_) {ffwd_term_ = next_cmd;}
     if (Icntrl_) {err_int_ += err_;}
 

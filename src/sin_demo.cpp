@@ -22,7 +22,7 @@
 
 // FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> can_intf;
 
-// auto controller = PositionController(.2, 0.006, 0.008);
+// auto controller = PositionController(.27, 0.01, 0.01);
 // // auto controller = PositionController(.0, 0.0, 0.0);
 
 // void onCanMessage(const CanMsg & msg);
@@ -40,11 +40,9 @@
 // auto next = 0.0;
 // auto velocity = 0.0;
 // auto u = 0.0;
-// auto u_clamp = 0.15;
-// auto u_clamping = true;
 // auto encoder_offset = 0.0;
 // auto target = 0.0;
-// auto amplitude = 1.0;
+// auto amplitude = 1.5;
 // // Called every time a Heartbeat message arrives from the ODrive
 // void onHeartbeat(Heartbeat_msg_t & msg, void * user_data)
 // {
@@ -89,7 +87,7 @@
 //                         // This has been found to reduce the number of dropped messages, however it can be removed
 //                         // for applications requiring loop times over 100Hz.
 
-//   float SINE_PERIOD = 2.50f; // Period of the position command sine wave in seconds
+//   float SINE_PERIOD = 0.50f; // Period of the position command sine wave in seconds
 
 //   float t = 0.001 * millis();
 
@@ -171,9 +169,9 @@
 
 //   // disable feed forward
 //   controller.set_ffwd_control(false);
-//   controller.set_gvty_compensation(false);
+//   controller.set_gvty_compensation(true);
 //   controller.set_i_clamp_val(10.0);
-//   controller.set_u_clamp_val(0.2);
+//   controller.set_u_clamp_val(1.2);
 
 //   Serial.println("Starting ODriveCAN demo");
 
