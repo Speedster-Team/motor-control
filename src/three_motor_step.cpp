@@ -22,9 +22,10 @@ struct ODriveUserData
 
 struct Motor
 {
-    ODriveCAN odrive;
+    ODriveCAN& odrive;
     ODriveUserData user_data;
     PositionController controller;
+    int id;
 };
 
 struct ODriveStatus; // hack to prevent teensy compile error
@@ -33,21 +34,30 @@ FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> can_intf;
 
 // auto controller = PositionController(.27, 0.012, 0.02);
 // auto controller = PositionController(.2, 0.006, 0.008);
-auto controller0 = PositionController(.0, 0.0, 0.0);
-auto controller1 = PositionController(.0, 0.0, 0.0);
-auto controller2 = PositionController(.0, 0.0, 0.0);
+// auto controller0 = PositionController(.0, 0.0, 0.0);
+// auto controller1 = PositionController(.0, 0.0, 0.0);
+// auto controller2 = PositionController(.0, 0.0, 0.0);
 
 void onCanMessage(const CanMsg & msg);
 
 ODriveCAN odrv0(wrap_can_intf(can_intf), ODRV0_NODE_ID); // Standard CAN message ID
 ODriveCAN odrv1(wrap_can_intf(can_intf), ODRV1_NODE_ID); // Standard CAN message ID
 ODriveCAN odrv2(wrap_can_intf(can_intf), ODRV2_NODE_ID); // Standard CAN message ID
-ODriveUserData odrv0_user_data;
-ODriveUserData odrv1_user_data;
-ODriveUserData odrv2_user_data;
-Motor motor0 {odrv0, odrv0_user_data, controller0};
-Motor motor1 {odrv1, odrv1_user_data, controller1};
-Motor motor2 {odrv2, odrv2_user_data, controller2};
+// ODriveUserData odrv0_user_data;
+// ODriveUserData odrv1_user_data;
+// ODriveUserData odrv2_user_data;
+Motor motor0 {odrv0,
+              ODriveUserData(),
+              PositionController(.0, 0.0, 0.0),
+              ODRV0_NODE_ID};
+Motor motor1 {odrv1,
+              ODriveUserData(),
+              PositionController(.0, 0.0, 0.0),
+              ODRV1_NODE_ID};
+Motor motor2 {odrv2,
+              ODriveUserData(),
+              PositionController(.0, 0.0, 0.0),
+              ODRV2_NODE_ID};
 Motor * motors[] = {&motor0, &motor1, &motor2}; // Make sure all ODriveCAN instances are accounted for here
 
 TeensyTimerTool::PeriodicTimer motor0_timer(TeensyTimerTool::TCK);
@@ -84,13 +94,24 @@ void onFeedback(Get_Encoder_Estimates_msg_t & msg, void * user_data)
   odrv_user_data->received_feedback = true;
 }
 
-// Called for every message that arrives on the CAN bus
-void onCanMessage(const CanMsg & msg)
-{
-  for (auto motor: motors) {
-    onReceive(msg, motor->odrive);  // could be wrong
-  }
+// // Called for every message that arrives on the CAN bus
+// void onCanMessage(const CanMsg& msg) {
+//   for (auto motor: motors) {
+//     onReceive(msg, motor->odrive);
+//   }
+// }
+
+// Route CAN by node ID:
+void onCanMessage(const CanMsg& msg) {
+    uint8_t node_id = msg.id >> 5;
+    for (auto motor : motors) {
+        if (motor->id == node_id) {
+            onReceive(msg, motor->odrive);
+            return;
+        }
+    }
 }
+
 
 bool setupCan()
 {
@@ -103,31 +124,31 @@ bool setupCan()
   return true;
 }
 
-void sin_control_loop(Motor motor)
-{
+// void sin_control_loop(Motor motor)
+// {
 
-  pumpEvents(can_intf); // This is required on some platforms to handle incoming feedback CAN messages
-                        // Note that on MCP2515-based platforms, this will delay for a fixed 10ms.
-                        //
-                        // This has been found to reduce the number of dropped messages, however it can be removed
-                        // for applications requiring loop times over 100Hz.
+//   pumpEvents(can_intf); // This is required on some platforms to handle incoming feedback CAN messages
+//                         // Note that on MCP2515-based platforms, this will delay for a fixed 10ms.
+//                         //
+//                         // This has been found to reduce the number of dropped messages, however it can be removed
+//                         // for applications requiring loop times over 100Hz.
 
-  float SINE_PERIOD = 2.50f; // Period of the position command sine wave in seconds
+//   float SINE_PERIOD = 2.50f; // Period of the position command sine wave in seconds
 
-  float t = 0.001 * millis();
+//   float t = 0.001 * millis();
 
-  float phase = t * (TWO_PI / SINE_PERIOD);
+//   float phase = t * (TWO_PI / SINE_PERIOD);
 
-  setpoint = amplitude * sin(phase);
-  actual = motor.user_data.last_feedback.Pos_Estimate - encoder_offset;
-  next = amplitude * sin(phase + 0.001);
-  velocity = motor.user_data.last_feedback.Vel_Estimate;
+//   setpoint = amplitude * sin(phase);
+//   actual = motor.user_data.last_feedback.Pos_Estimate - encoder_offset;
+//   next = amplitude * sin(phase + 0.001);
+//   velocity = motor.user_data.last_feedback.Vel_Estimate;
 
-  u = motor.controller.pump_controller(setpoint, actual, next, odrv0_user_data.last_feedback.Vel_Estimate);
+//   u = motor.controller.pump_controller(setpoint, actual, next, odrv0_user_data.last_feedback.Vel_Estimate);
 
-  motor.odrive.setTorque(u);
+//   motor.odrive.setTorque(u);
   
-}
+// }
 
 void step_control_loop(Motor motor)
 {
@@ -191,7 +212,18 @@ void setup()
 {
 
   Serial.begin(115200);
+  while(!Serial){}
   Serial.println("Starting ODriveCAN demo");
+
+  // init count
+  auto c = 0;
+
+  // must register callbacks before initializing motors
+  for (auto motor : motors) {
+    // Register callbacks for the heartbeat and encoder feedback messages
+    motor->odrive.onFeedback(onFeedback, &motor->user_data);
+    motor->odrive.onStatus(onHeartbeat, &motor->user_data);
+  }
 
   // Configure and initialize the CAN bus interface. This function depends on
   // your hardware and the CAN stack that you're using.
@@ -200,7 +232,6 @@ void setup()
     while (true) {} // spin indefinitely
   }
 
-  auto c = 0;
   for (auto motor : motors) {
     // disable feed forward
     motor->controller.set_ffwd_control(false);
@@ -237,7 +268,7 @@ void setup()
     Serial.print("DC current [A]: ");
     Serial.println(vbus.Bus_Current);
 
-    Serial.println("Enabling closed loop control for Odrive");
+    Serial.print("Enabling closed loop control for Odrive");
     Serial.print(c);
     Serial.println("...");
 
@@ -263,31 +294,31 @@ void setup()
         pumpEvents(can_intf);
       }
     }
+    Serial.print("ODrive");
+    Serial.print(c);
+    Serial.println(" ready!");
 
     c++;
   }
-  motor0_timer.begin(
-    [](){
-      step_control_loop(motor0);
-    }, 1000);
+  // motor0_timer.begin(
+  //   [](){
+  //     step_control_loop(motor0);
+  //   }, 1000);
 
-  motor1_timer.begin(
-    [](){
-      step_control_loop(motor1);
-    }, 1000);
+  // motor1_timer.begin(
+  //   [](){
+  //     step_control_loop(motor1);
+  //   }, 1000);
 
 
-  motor2_timer.begin(
-    [](){
-      step_control_loop(motor2);
-    }, 1000);
-  print_timer.begin(
-    [](){
-      print_loop();
-    }, 1000);
-
-  Serial.println("ODrive ready!");
-
+  // motor2_timer.begin(
+  //   [](){
+  //     step_control_loop(motor2);
+  //   }, 1000);
+  // print_timer.begin(
+  //   [](){
+  //     print_loop();
+  //   }, 1000);
 
 }
 
