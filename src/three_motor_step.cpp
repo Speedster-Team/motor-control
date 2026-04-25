@@ -2,6 +2,7 @@
 // https://docs.odriverobotics.com/v/latest/guides/arduino-can-guide.html
 #include "ODriveCAN.h"
 #include "pos_controller.hpp"
+#include "interface.hpp"
 #include <FlexCAN_T4.h>
 #include "ODriveFlexCAN.hpp"
 #include <TeensyTimerTool.h>
@@ -32,20 +33,15 @@ struct ODriveStatus; // hack to prevent teensy compile error
 
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> can_intf;
 
-// auto controller = PositionController(.27, 0.012, 0.02);
-// auto controller = PositionController(.2, 0.006, 0.008);
-// auto controller0 = PositionController(.0, 0.0, 0.0);
-// auto controller1 = PositionController(.0, 0.0, 0.0);
-// auto controller2 = PositionController(.0, 0.0, 0.0);
+auto interface = SerialInterface(Serial);
+
 
 void onCanMessage(const CanMsg & msg);
 
 ODriveCAN odrv0(wrap_can_intf(can_intf), ODRV0_NODE_ID); // Standard CAN message ID
 ODriveCAN odrv1(wrap_can_intf(can_intf), ODRV1_NODE_ID); // Standard CAN message ID
 ODriveCAN odrv2(wrap_can_intf(can_intf), ODRV2_NODE_ID); // Standard CAN message ID
-// ODriveUserData odrv0_user_data;
-// ODriveUserData odrv1_user_data;
-// ODriveUserData odrv2_user_data;
+
 Motor motor0 {odrv0,
               ODriveUserData(),
               PositionController(.0, 0.0, 0.0),
@@ -60,10 +56,8 @@ Motor motor2 {odrv2,
               ODRV2_NODE_ID};
 Motor * motors[] = {&motor0, &motor1, &motor2}; // Make sure all ODriveCAN instances are accounted for here
 
-TeensyTimerTool::PeriodicTimer motor0_timer(TeensyTimerTool::TCK);
-TeensyTimerTool::PeriodicTimer motor1_timer(TeensyTimerTool::TCK);
-TeensyTimerTool::PeriodicTimer motor2_timer(TeensyTimerTool::TCK);
-TeensyTimerTool::PeriodicTimer print_timer(TeensyTimerTool::TCK);
+TeensyTimerTool::PeriodicTimer motor_timer(TeensyTimerTool::TCK);
+TeensyTimerTool::PeriodicTimer interface_timer(TeensyTimerTool::TCK);
 
 // init global vars
 auto control_count = 0;
@@ -124,33 +118,7 @@ bool setupCan()
   return true;
 }
 
-// void sin_control_loop(Motor motor)
-// {
-
-//   pumpEvents(can_intf); // This is required on some platforms to handle incoming feedback CAN messages
-//                         // Note that on MCP2515-based platforms, this will delay for a fixed 10ms.
-//                         //
-//                         // This has been found to reduce the number of dropped messages, however it can be removed
-//                         // for applications requiring loop times over 100Hz.
-
-//   float SINE_PERIOD = 2.50f; // Period of the position command sine wave in seconds
-
-//   float t = 0.001 * millis();
-
-//   float phase = t * (TWO_PI / SINE_PERIOD);
-
-//   setpoint = amplitude * sin(phase);
-//   actual = motor.user_data.last_feedback.Pos_Estimate - encoder_offset;
-//   next = amplitude * sin(phase + 0.001);
-//   velocity = motor.user_data.last_feedback.Vel_Estimate;
-
-//   u = motor.controller.pump_controller(setpoint, actual, next, odrv0_user_data.last_feedback.Vel_Estimate);
-
-//   motor.odrive.setTorque(u);
-  
-// }
-
-void step_control_loop(Motor motor)
+void control_loop()
 {
   static double control = 1.0;
 
@@ -167,47 +135,41 @@ void step_control_loop(Motor motor)
     control = target + amplitude;
   }
 
-  setpoint = control;
-  actual = motor.user_data.last_feedback.Pos_Estimate - encoder_offset;
-  velocity = motor.user_data.last_feedback.Vel_Estimate;
-  u = motor.controller.pump_controller(setpoint, actual, next, velocity);
-
-  motor.odrive.setTorque(u);
+  for (auto motor : motors) {
+    motor->odrive.setPosition(control);
+  }
 
   control_count++;
   
 }
 
-void print_loop()
+
+void control_loop2()
 {
-  for (auto motor : motors)
-    if (motor->user_data.received_feedback == true)
-    {
-      motor->user_data.received_feedback = false;
-      Serial.print(">odrv0_pos:");
-      Serial.print(actual);
-      Serial.print("\n");
-      // Serial.print(">cmd_pos:");
-      // Serial.println(setpoint);
-      // Serial.print("\n");
-      // Serial.print(">u:");
-      // Serial.println(u);
-      // Serial.print("\n");
-      Serial.print(">velocity:");
-      Serial.println(velocity);
-      Serial.print("\n");
-      // Serial.print(">cos(angle):");
-      // Serial.println(cos(2*PI*(actual) / 18.0));
-      // Serial.print("\n");
-      // Serial.print(">actual:");
-      // Serial.println(actual);
-      // Serial.print("\n");
-      // Serial.print(">actual/gr:");
-      // Serial.println(actual/18.0);
+  auto cmd = interface.get_command();
+  // printf("%c %d %d\n", cmd.type, cmd.length, cmd.repeat);
+
+  pumpEvents(can_intf);
+
+  if (cmd.type == 's' && control_count < cmd.length) {
+
+ 
+    auto motor_count = 0;
+    for (auto motor : motors) {
+      motor->odrive.setPosition(interface._positions[control_count][motor_count]);
+      motor_count++;
     }
+
+    control_count++;
+
+    if (control_count == cmd.length && cmd.repeat == 1){
+      control_count = 0;
+    }
+
+  }
+
+  
 }
-
-
 void setup()
 {
 
@@ -300,25 +262,16 @@ void setup()
 
     c++;
   }
-  // motor0_timer.begin(
-  //   [](){
-  //     step_control_loop(motor0);
-  //   }, 1000);
 
-  // motor1_timer.begin(
-  //   [](){
-  //     step_control_loop(motor1);
-  //   }, 1000);
+  interface_timer.begin(
+    [](){
+      interface.loop();
+    }, 1000);
 
-
-  // motor2_timer.begin(
-  //   [](){
-  //     step_control_loop(motor2);
-  //   }, 1000);
-  // print_timer.begin(
-  //   [](){
-  //     print_loop();
-  //   }, 1000);
+    motor_timer.begin(
+    [](){
+      control_loop2();
+    }, 10000);
 
 }
 
