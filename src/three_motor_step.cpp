@@ -35,7 +35,6 @@ FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> can_intf;
 
 auto interface = SerialInterface(Serial);
 
-
 void onCanMessage(const CanMsg & msg);
 
 ODriveCAN odrv0(wrap_can_intf(can_intf), ODRV0_NODE_ID); // Standard CAN message ID
@@ -58,20 +57,13 @@ Motor * motors[] = {&motor0, &motor1, &motor2}; // Make sure all ODriveCAN insta
 
 TeensyTimerTool::PeriodicTimer motor_timer(TeensyTimerTool::TCK);
 TeensyTimerTool::PeriodicTimer interface_timer(TeensyTimerTool::TCK);
+TeensyTimerTool::PeriodicTimer can_timer(TeensyTimerTool::TCK);
+TeensyTimerTool::PeriodicTimer feedback_timer(TeensyTimerTool::TCK);
 
 // init global vars
-auto control_count = 0;
-auto setpoint = 0.0;
-auto actual = 0.0;
-auto next = 0.0;
-auto velocity = 0.0;
-auto u = 0.0;
-auto u_clamp = 0.15;
-auto u_clamping = true;
-auto encoder_offset = 0.0;
-auto target = 0.0;
-auto amplitude = 1.0;
-
+volatile auto control_count = 0;
+auto encoder_offset = 0.0f;
+volatile auto active = 0.0f;
 // Called every time a Heartbeat message arrives from the ODrive
 void onHeartbeat(Heartbeat_msg_t & msg, void * user_data)
 {
@@ -118,42 +110,17 @@ bool setupCan()
   return true;
 }
 
-void control_loop()
-{
-  static double control = 1.0;
-
-  pumpEvents(can_intf); // This is required on some platforms to handle incoming feedback CAN messages
-                        // Note that on MCP2515-based platforms, this will delay for a fixed 10ms.
-                        //
-                        // This has been found to reduce the number of dropped messages, however it can be removed
-                        // for applications requiring loop times over 100Hz.
-
-  if (control_count > 1000)
-  {
-    control_count = 0;
-    amplitude*=-1;
-    control = target + amplitude;
-  }
-
-  for (auto motor : motors) {
-    motor->odrive.setPosition(control);
-  }
-
-  control_count++;
-  
+void can_loop() {
+  pumpEvents(can_intf);
 }
 
-
-void control_loop2()
+void control_loop()
 {
   auto cmd = interface.get_command();
-  // printf("%c %d %d\n", cmd.type, cmd.length, cmd.repeat);
 
-  pumpEvents(can_intf);
-
-  if (cmd.type == 's' && control_count < cmd.length) {
-
- 
+  if (cmd.type == 'G' && control_count < cmd.length) {
+    active = 1.0;
+    
     auto motor_count = 0;
     for (auto motor : motors) {
       motor->odrive.setPosition(interface._positions[control_count][motor_count]);
@@ -163,12 +130,32 @@ void control_loop2()
     control_count++;
 
     if (control_count == cmd.length && cmd.repeat == 1){
-      control_count = 0;
+      control_count = 0.0;
     }
+  } 
+  else if (cmd.type == 'S') {
+    active = 0.0;
 
+    // what to do if it is a stop command
+    // should it stop the motors completely or what
+  } else {
+    active = 0.0;
   }
 
+}
+
+void feedback_loop() {
+  // get feedback
+  auto motor_count = 0;
+  float motor_feedback[3];
   
+  for (auto motor : motors) {
+    motor_feedback[motor_count] = motor->user_data.last_feedback.Pos_Estimate;
+    motor_count++;
+  }
+
+  // send feedback
+  interface.feedback(motor_feedback[0], motor_feedback[1], motor_feedback[2], active);
 }
 void setup()
 {
@@ -201,7 +188,6 @@ void setup()
     motor->controller.set_i_clamp_val(10.0);
     motor->controller.set_u_clamp_val(1.2);
   
-
     // Register callbacks for the heartbeat and encoder feedback messages
     motor->odrive.onFeedback(onFeedback, &motor->user_data);
     motor->odrive.onStatus(onHeartbeat, &motor->user_data);
@@ -235,8 +221,8 @@ void setup()
     Serial.println("...");
 
     // set encoder offset
-    encoder_offset = motor->user_data.last_feedback.Pos_Estimate;
-
+    // encoder_offset = motor->user_data.last_feedback.Pos_Estimate;
+    encoder_offset = 0;
     while (motor->user_data.last_heartbeat.Axis_State !=
       ODriveAxisState::AXIS_STATE_CLOSED_LOOP_CONTROL)
     {
@@ -262,15 +248,24 @@ void setup()
 
     c++;
   }
+  can_timer.begin(
+    [](){
+      can_loop();
+    }, 1000);
 
   interface_timer.begin(
     [](){
       interface.loop();
     }, 1000);
 
+    feedback_timer.begin(
+    [](){
+      feedback_loop();
+    }, 10000);
+
     motor_timer.begin(
     [](){
-      control_loop2();
+      control_loop();
     }, 10000);
 
 }

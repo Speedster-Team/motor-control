@@ -29,6 +29,8 @@ public:
 
     void response();
 
+    void feedback(float mcp_splay_motor_pos, float mcp_flex_motor_pos, float pip_flex_motor_pos, float feedback);
+
     void process_message();
 
     void loop();

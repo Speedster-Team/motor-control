@@ -37,6 +37,17 @@ uint8_t SerialInterface::crc8_message(int start, int end) {
 void SerialInterface::parse_header_line(char* line) {
     char* token = strtok(line, " ");
     _cmd.type = token[0];
+
+    // check for stop command
+    if (_cmd.type == 'S') {
+        // stop command
+        _cmd.length = 0;
+        _cmd.repeat = 0;
+        return;
+    } else if (_cmd.type == 'G') {
+        // go command
+        return;
+    }
     token = strtok(nullptr, " ");
     _cmd.length = atoi(token);
     token = strtok(nullptr, " ");
@@ -59,41 +70,84 @@ void SerialInterface::parse_footer_line(char* line) {
 }
 
 void SerialInterface::response() {
-    Serial.printf("%c %d %d %d %d %d\n",
-        _cmd.type, _message_line_count, _cmd.repeat,
-        _checksum_received, _checksum_computed, _flag_error);
+    Serial.printf("%d\n", _flag_error);
+}
+
+void SerialInterface::feedback(float mcp_splay_motor_pos, float mcp_flex_motor_pos, float pip_flex_motor_pos, float active) {
+    Serial.printf("%f %f %f %f\n", mcp_splay_motor_pos, mcp_flex_motor_pos, pip_flex_motor_pos, active);
 }
 
 void SerialInterface::process_message() {
-    parse_footer_line(_message[_message_line_count - 1]);
-    _checksum_computed = crc8_message(1, _message_line_count - 1);
+    // check type of command
     parse_header_line(_message[0]);
-    for (int i = 1; i < _message_line_count - 1; i++)
-        parse_data_line(_message[i], i - 1);
-    if (_checksum_computed != _checksum_received)
-        _flag_error = 99;
-    response();
-    _message_ready = false;
-    _message_line_count = 0;
-    _flag_error = 0;
+
+    if (_cmd.type == 'D'){
+        // get crc
+        parse_footer_line(_message[_message_line_count - 1]);
+
+        // compute crc on this side
+        _checksum_computed = crc8_message(1, _message_line_count - 1);
+
+        // save data
+        for (int i = 1; i < _message_line_count - 1; i++)
+        {
+            parse_data_line(_message[i], i - 1);
+        }
+
+        // check checksum
+        if (_checksum_computed != _checksum_received)
+        {
+            _flag_error = 99;
+        }
+        
+        // send response
+        response();
+
+        // reset vars
+        _message_ready = false;
+        _message_line_count = 0;
+        _flag_error = 0;
+    } else {
+        response();
+        _message_ready = false;
+        _flag_error = 0;  // should already be 0
+    }
 }
 
 void SerialInterface::loop() {
+    // empty out buffer
     while (Serial.available()) {
+
+        // get next char
         char c = Serial.read();
+
+        // check if it is a new line char
         if (c == '\n') {
+
+            // replace with null terminator
             _line_buf[_line_buf_pos] = '\0';
+
+            // check if it is the last line
             if (strcmp(_line_buf, "end") == 0)
+            {
+                // if so don't save 'end' and flip bool so message is processed
                 _message_ready = true;
+            }
             else
-                strncpy(_message[_message_line_count++], _line_buf, MAX_LINE_LENGTH - 1);
+            {
+                // otherwise save row and continue looking for end
+                // strncpy(_message[_message_line_count++], _line_buf, MAX_LINE_LENGTH - 1);
+                snprintf(_message[_message_line_count++], MAX_LINE_LENGTH, "%s", _line_buf);
+            }
             _line_buf_pos = 0;
         } else if (_line_buf_pos < MAX_LINE_LENGTH - 1) {
             _line_buf[_line_buf_pos++] = c;
         }
     }
     if (_message_ready)
+    {
         process_message();
+    }
 }
 
 Command SerialInterface::get_command() const {
