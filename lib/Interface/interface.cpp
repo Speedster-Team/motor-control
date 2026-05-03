@@ -6,7 +6,7 @@ SerialInterface::SerialInterface(usb_serial_class serial)
     , _message_line_count(0)
     , _line_buf_pos(0)
     , _cmd{' ', 0, 0}
-    , _flag_error(0)
+    , _flag_error(1)
     , _checksum_received(0)
     , _checksum_computed(0)
     , _user_serial(serial)
@@ -62,7 +62,7 @@ void SerialInterface::parse_data_line(char* line, int lineIdx) {
         token = strtok(nullptr, " ");
     }
     if (motorIdx != NUM_MOTORS)
-        _flag_error = 2;
+        _flag_error = 0;
 }
 
 void SerialInterface::parse_footer_line(char* line) {
@@ -97,7 +97,7 @@ void SerialInterface::process_message() {
         // check checksum
         if (_checksum_computed != _checksum_received)
         {
-            _flag_error = 99;
+            _flag_error = 0;
         }
         
         // send response
@@ -106,11 +106,11 @@ void SerialInterface::process_message() {
         // reset vars
         _message_ready = false;
         _message_line_count = 0;
-        _flag_error = 0;
+        _flag_error = 1;
     } else {
         response();
         _message_ready = false;
-        _flag_error = 0;  // should already be 0
+        _flag_error = 1;  // should already be 1
     }
 }
 
