@@ -40,11 +40,13 @@ void SerialInterface::parse_header_line(char* line) {
 
     // check for stop command
     if (_cmd.type == 'S') {
+        Serial.println("Received stop command");
         // stop command
         _cmd.length = 0;
         _cmd.repeat = 0;
         return;
     } else if (_cmd.type == 'G') {
+        Serial.println("Received go command");
         // go command
         return;
     }
@@ -110,6 +112,7 @@ void SerialInterface::process_message() {
     } else {
         response();
         _message_ready = false;
+        _message_line_count = 0;
         _flag_error = 1;  // should already be 1
     }
 }
@@ -146,6 +149,7 @@ void SerialInterface::loop() {
     }
     if (_message_ready)
     {
+        Serial.printf("%s\n", _message[0]);
         process_message();
     }
 }
