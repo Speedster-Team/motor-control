@@ -37,6 +37,8 @@ public:
 
     Command get_command() const;
 
+    void set_command_type(Command type);
+
     float _positions[MAX_MESSAGE_LENGTH][NUM_MOTORS];
 
 private:

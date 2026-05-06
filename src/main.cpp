@@ -35,8 +35,14 @@ void control_loop() {
     } else if (cmd.type == 'S') {
         odrive_mgr.set_active(0.0f);
         // Stop semantics TBD — matches original (no-op on motors).
+        control_count_ = 0;
     } else {
         odrive_mgr.set_active(0.0f);
+        control_count_ = 0;
+
+        auto cmd = Command{'A', 0, 0};
+        interface.set_command_type(cmd);
+
     }
 }
 
@@ -46,43 +52,54 @@ void pass_feedback() {
 }
 
 void startup_procedure() {
+
+  Serial.println("Starting startup procedure...");
+  
   odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_VELOCITY_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH); 
-  float torque_threshold = 0.05f; // empirically determined threshold for "motor is ready"
+  //float torque_threshold = 0.15f; // empirically determined threshold for "motor is ready"
+  std::array<float, 3> zero_angles = {-0.611f/6.28f, 0.154f/6.28f, 0.274f/6.28f};
 
   // pip-dip 0
-  std::array<float, 3> cmd = {0.0, 0.0f, 0.1f};
+  Serial.println("splay 0");
+  std::array<float, 3> cmd = {0.1, 0.0f, 0.0f};
   odrive_mgr.set_commands(cmd);
 
-  while(fabsf(odrive_mgr.get_torque_feedback()[2] < torque_threshold)) {
+  while(fabsf(odrive_mgr.get_torque_feedback()[0] < 0.1)) {
     delay(5);
   }
 
   // mcp 0
-  std::array<float, 3> cmd_2 = {0.0, 0.1f, 0.178f};
+  Serial.println("mcp 0");
+  std::array<float, 3> cmd_2 = {0.0, 0.1f, 0.0f};
   odrive_mgr.set_commands(cmd_2);
 
-  while(fabsf(odrive_mgr.get_torque_feedback()[1] < torque_threshold)) {
+  while(fabsf(odrive_mgr.get_torque_feedback()[1] < 0.15)) {
     delay(5);
   }
 
   // splay 0
-  std::array<float, 3> cmd_3 = {0.1, -0.051f, -0.091f};
+  Serial.println("pip/dip 0");
+  std::array<float, 3> cmd_3 = {0.0f, 0.0f, 0.1f};
   odrive_mgr.set_commands(cmd_3);
 
-  while(fabsf(odrive_mgr.get_torque_feedback()[0] < 0.8*torque_threshold)) {
+  while(fabsf(odrive_mgr.get_torque_feedback()[2] < 0.08)) {
     delay(5);
   }
   auto encoder_offset = odrive_mgr.get_position_feedback();
-  odrive_mgr.set_zero_position(encoder_offset);
+  auto hi = std::array<float, 3>{encoder_offset[0] - zero_angles[0],encoder_offset[1] - zero_angles[1],encoder_offset[2] - zero_angles[2]};
+  odrive_mgr.set_zero_position(hi);
 
   std::array<float, 3> cmd_zero = {0.0f, 0.0f, 0.0f};
   odrive_mgr.set_commands(cmd_zero);
   odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH); 
+
+  Serial.println("Calibration procedure complete!");
+
 }
 
 void setup() {
     Serial.begin(115200);
-    while (!Serial) {}
+    // while (!Serial) {}
     Serial.println("Starting ODriveCAN demo");
  
     if (!odrive_mgr.begin()) {

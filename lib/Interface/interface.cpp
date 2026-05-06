@@ -157,3 +157,7 @@ void SerialInterface::loop() {
 Command SerialInterface::get_command() const {
     return _cmd;
 }
+
+void SerialInterface::set_command_type(Command type) {
+    _cmd.type = type.type;
+}
