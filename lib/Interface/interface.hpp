@@ -29,7 +29,7 @@ public:
 
     void response();
 
-    void feedback(float mcp_splay_motor_pos, float mcp_flex_motor_pos, float pip_flex_motor_pos, float feedback);
+    void feedback(float mcp_splay_motor_pos, float mcp_flex_motor_pos, float pip_flex_motor_pos, float cmd_mcp_splay_motor_pos, float cmd_mcp_flex_motor_pos, float cmd_pip_flex_motor_pos, float active);
 
     void process_message();
 

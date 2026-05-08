@@ -11,12 +11,13 @@ static TeensyTimerTool::PeriodicTimer motor_timer(TeensyTimerTool::TCK);
 static TeensyTimerTool::PeriodicTimer interface_timer(TeensyTimerTool::TCK);
 static TeensyTimerTool::PeriodicTimer can_timer(TeensyTimerTool::TCK);
 static TeensyTimerTool::PeriodicTimer feedback_timer(TeensyTimerTool::TCK);
+
+static volatile int control_count_ = 0;
+
+static std::array<float, 3> last_setpoint_ = {0.f, 0.f, 0.f};
  
 void control_loop() {
     auto cmd = interface.get_command();
-    static int control_count_ = 0;
-
-    //Serial.printf("Received command: type=%c, length=%d, repeat=%d\n", cmd.type, cmd.length, cmd.repeat);
 
     if (cmd.type == 'G' && control_count_ < cmd.length) {
         odrive_mgr.set_active(1.0f);
@@ -27,6 +28,13 @@ void control_loop() {
           interface._positions[control_count_][2]/ 6.28f};
 
         odrive_mgr.set_commands(motor_cmd);
+
+        // Latch setpoint in radians (what you actually sent)
+        last_setpoint_ = {
+            interface._positions[control_count_][0],
+            interface._positions[control_count_][1],
+            interface._positions[control_count_][2]
+        };
 
         control_count_++;
         if (control_count_ == cmd.length && cmd.repeat == 1) {
@@ -48,7 +56,20 @@ void control_loop() {
 
 void pass_feedback() {
     auto fb = odrive_mgr.get_position_feedback();
-    interface.feedback(fb[0], fb[1], fb[2], odrive_mgr.get_active());
+    
+    // interface.feedback(fb[0] * 6.28f, 
+    //                    fb[1] * 6.28f, 
+    //                    fb[2] * 6.28f,
+    //                    interface._positions[control_count_][0],
+    //                    interface._positions[control_count_][1], 
+    //                    interface._positions[control_count_][2],
+    //                    odrive_mgr.get_active());
+
+    interface.feedback(
+    fb[0] * 6.28f, fb[1] * 6.28f, fb[2] * 6.28f,
+    last_setpoint_[0], last_setpoint_[1], last_setpoint_[2],
+    odrive_mgr.get_active()
+    );
 }
 
 void startup_procedure() {
@@ -56,33 +77,32 @@ void startup_procedure() {
   Serial.println("Starting startup procedure...");
   
   odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_VELOCITY_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH); 
-  //float torque_threshold = 0.15f; // empirically determined threshold for "motor is ready"
-  std::array<float, 3> zero_angles = {-0.611f/6.28f, 0.154f/6.28f, 0.274f/6.28f};
+  //float torque_threshold = 0.15f; // epirically determined threshold for "motor is ready"
+  std::array<float, 3> zero_angles = {-1.68f/6.28f, 1.22/6.28f, -0.896f/6.28f};
 
   // pip-dip 0
   Serial.println("splay 0");
-  std::array<float, 3> cmd = {0.1, 0.0f, 0.0f};
+  std::array<float, 3> cmd = {-0.2, 0.0f, 0.0f};
   odrive_mgr.set_commands(cmd);
 
-  while(fabsf(odrive_mgr.get_torque_feedback()[0] < 0.1)) {
+  while(fabsf(odrive_mgr.get_torque_feedback()[0]) < 0.2) {
     delay(5);
   }
-
   // mcp 0
   Serial.println("mcp 0");
-  std::array<float, 3> cmd_2 = {0.0, 0.1f, 0.0f};
+  std::array<float, 3> cmd_2 = {0.0, 0.2f, 0.0f};
   odrive_mgr.set_commands(cmd_2);
 
-  while(fabsf(odrive_mgr.get_torque_feedback()[1] < 0.15)) {
+  while(fabsf(odrive_mgr.get_torque_feedback()[1]) < 0.1) {
     delay(5);
   }
 
   // splay 0
   Serial.println("pip/dip 0");
-  std::array<float, 3> cmd_3 = {0.0f, 0.0f, 0.1f};
+  std::array<float, 3> cmd_3 = {0.0f, 0.0f, 0.2f};
   odrive_mgr.set_commands(cmd_3);
 
-  while(fabsf(odrive_mgr.get_torque_feedback()[2] < 0.08)) {
+  while(fabsf(odrive_mgr.get_torque_feedback()[2]) < 0.08) {
     delay(5);
   }
   auto encoder_offset = odrive_mgr.get_position_feedback();
@@ -112,7 +132,7 @@ void setup() {
     // Startup procedure
     startup_procedure();
 
-    interface_timer.begin([]() {interface.loop();}, 1000);
+    interface_timer.begin([]() { interface.loop(); }, 1000);
     feedback_timer.begin([]() { pass_feedback(); }, 10000);
     control_timer.begin([]() { control_loop(); }, 10000);
 }

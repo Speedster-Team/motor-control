@@ -75,8 +75,8 @@ void SerialInterface::response() {
     Serial.printf("%d\n", _flag_error);
 }
 
-void SerialInterface::feedback(float mcp_splay_motor_pos, float mcp_flex_motor_pos, float pip_flex_motor_pos, float active) {
-    Serial.printf("%f %f %f %f\n", mcp_splay_motor_pos, mcp_flex_motor_pos, pip_flex_motor_pos, active);
+void SerialInterface::feedback(float mcp_splay_motor_pos, float mcp_flex_motor_pos, float pip_flex_motor_pos, float cmd_mcp_splay_motor_pos, float cmd_mcp_flex_motor_pos, float cmd_pip_flex_motor_pos, float active) {
+    Serial.printf("%f %f %f %f %f %f %f\n", mcp_splay_motor_pos, mcp_flex_motor_pos, pip_flex_motor_pos, cmd_mcp_splay_motor_pos, cmd_mcp_flex_motor_pos, cmd_pip_flex_motor_pos, active);
 }
 
 void SerialInterface::process_message() {
