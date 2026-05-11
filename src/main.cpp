@@ -56,14 +56,6 @@ void control_loop() {
 
 void pass_feedback() {
     auto fb = odrive_mgr.get_position_feedback();
-    
-    // interface.feedback(fb[0] * 6.28f, 
-    //                    fb[1] * 6.28f, 
-    //                    fb[2] * 6.28f,
-    //                    interface._positions[control_count_][0],
-    //                    interface._positions[control_count_][1], 
-    //                    interface._positions[control_count_][2],
-    //                    odrive_mgr.get_active());
 
     interface.feedback(
     fb[0] * 6.28f, fb[1] * 6.28f, fb[2] * 6.28f,
@@ -85,7 +77,7 @@ void startup_procedure() {
   std::array<float, 3> cmd = {-0.2, 0.0f, 0.0f};
   odrive_mgr.set_commands(cmd);
 
-  while(fabsf(odrive_mgr.get_torque_feedback()[0]) < 0.2) {
+  while(fabsf(odrive_mgr.get_torque_feedback()[0]) < 0.35) {
     delay(5);
   }
   // mcp 0
@@ -93,7 +85,7 @@ void startup_procedure() {
   std::array<float, 3> cmd_2 = {0.0, 0.2f, 0.0f};
   odrive_mgr.set_commands(cmd_2);
 
-  while(fabsf(odrive_mgr.get_torque_feedback()[1]) < 0.1) {
+  while(fabsf(odrive_mgr.get_torque_feedback()[1]) < 0.2) {
     delay(5);
   }
 
@@ -102,7 +94,7 @@ void startup_procedure() {
   std::array<float, 3> cmd_3 = {0.0f, 0.0f, 0.2f};
   odrive_mgr.set_commands(cmd_3);
 
-  while(fabsf(odrive_mgr.get_torque_feedback()[2]) < 0.08) {
+  while(fabsf(odrive_mgr.get_torque_feedback()[2]) < 0.1) {
     delay(5);
   }
   auto encoder_offset = odrive_mgr.get_position_feedback();
@@ -111,7 +103,10 @@ void startup_procedure() {
 
   std::array<float, 3> cmd_zero = {0.0f, 0.0f, 0.0f};
   odrive_mgr.set_commands(cmd_zero);
-  odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH); 
+  odrive_mgr.set_velocity_limit(0.5f);
+  odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_TRAP_TRAJ);
+  delay(2000);
+  odrive_mgr.set_velocity_limit(50.0f);
 
   Serial.println("Calibration procedure complete!");
 

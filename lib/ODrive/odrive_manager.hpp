@@ -69,6 +69,8 @@ public:
 
     void set_zero_position(const std::array<float, kNumMotors>& zero_pos);
 
+    void set_velocity_limit(float velocity_limit);
+
 
 private:
     // ODrive callbacks (free-function signatures, take user_data ptr).

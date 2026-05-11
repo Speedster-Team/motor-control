@@ -220,3 +220,9 @@ void ODriveManager::set_zero_position(const std::array<float, kNumMotors>& zero_
         motors_[i].odrive.setAbsolutePosition(current_pos - zero_pos[i]);
     }
 }
+
+void ODriveManager::set_velocity_limit(float velocity_limit) {
+    for (size_t i = 0; i < kNumMotors; ++i) {
+        motors_[i].odrive.setTrapezoidalVelLimit(velocity_limit);
+    }
+}
