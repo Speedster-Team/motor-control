@@ -122,12 +122,14 @@ void startup_procedure() {
   auto hi = std::array<float, 3>{encoder_offset[0] - zero_angles[0],encoder_offset[1] - zero_angles[1],encoder_offset[2] - zero_angles[2]};
   odrive_mgr.set_zero_position(hi);
 
+
   std::array<float, 3> cmd_zero = {0.0f, 0.0f, 0.0f};
-  odrive_mgr.set_commands(cmd_zero);
   odrive_mgr.set_velocity_limit(0.5f);
   odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_TRAP_TRAJ);
+  odrive_mgr.set_commands(cmd_zero);
   delay(2000);
   odrive_mgr.set_velocity_limit(50.0f);
+  odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
 
   Serial.println("Calibration procedure complete!");
 
