@@ -11,18 +11,21 @@ static TeensyTimerTool::PeriodicTimer motor_timer(TeensyTimerTool::TCK);
 static TeensyTimerTool::PeriodicTimer interface_timer(TeensyTimerTool::TCK);
 static TeensyTimerTool::PeriodicTimer can_timer(TeensyTimerTool::TCK);
 static TeensyTimerTool::PeriodicTimer feedback_timer(TeensyTimerTool::TCK);
+static TeensyTimerTool::PeriodicTimer mode_timer(TeensyTimerTool::TCK);
 
 static volatile int control_count_ = 0;
 
 static std::array<float, 3> last_setpoint_ = {0.f, 0.f, 0.f};
- 
+
+static Command last_cmd_{' ', 0, 0, ' '};
+
 void control_loop() {
     auto cmd = interface.get_command();
-    
-    if (control_count_ == 0 && cmd.type == 'G') {
+
+    if (last_cmd_.mode != cmd.mode) {
         switch (cmd.mode) {
             case 'P':
-                odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_TRAP_TRAJ);
+                odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
                 break;
             case 'V':
                 odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_VELOCITY_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
@@ -32,10 +35,11 @@ void control_loop() {
                 break;
             default:
                 // default to position control if mode is unrecognized
-                odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_TRAP_TRAJ);
+                odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
         }
+        last_cmd_ = cmd;
     }
-
+    
     if (cmd.type == 'G' && control_count_ < cmd.length) {
         odrive_mgr.set_active(1.0f);
 

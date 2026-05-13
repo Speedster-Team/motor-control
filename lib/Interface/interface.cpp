@@ -5,7 +5,7 @@ SerialInterface::SerialInterface(usb_serial_class serial)
     : _message_ready(false)
     , _message_line_count(0)
     , _line_buf_pos(0)
-    , _cmd{' ', 0, 0}
+    , _cmd{' ', 0, 0, ' '}
     , _flag_error(1)
     , _checksum_received(0)
     , _checksum_computed(0)

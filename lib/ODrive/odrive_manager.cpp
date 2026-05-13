@@ -162,7 +162,7 @@ void ODriveManager::set_control_mode(uint8_t control_mode, uint8_t input_mode) {
         motor.odrive.setState(ODriveAxisState::AXIS_STATE_IDLE);
         while (motor.user_data.last_heartbeat.Axis_State !=
                ODriveAxisState::AXIS_STATE_IDLE) {
-            delay(10);
+            delay(1);
             pumpEvents(can_intf_);
         }
 
@@ -175,7 +175,7 @@ void ODriveManager::set_control_mode(uint8_t control_mode, uint8_t input_mode) {
             delay(1);
             motor.odrive.setState(ODriveAxisState::AXIS_STATE_CLOSED_LOOP_CONTROL);
             for (int i = 0; i < 15; ++i) {
-                delay(10);
+                delay(1);
                 pumpEvents(can_intf_);
             }
         }
