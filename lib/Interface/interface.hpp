@@ -10,6 +10,7 @@ struct Command {
     char type;
     int length;
     int repeat;
+    char mode;
 };
 
 class SerialInterface

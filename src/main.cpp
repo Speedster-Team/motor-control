@@ -18,6 +18,23 @@ static std::array<float, 3> last_setpoint_ = {0.f, 0.f, 0.f};
  
 void control_loop() {
     auto cmd = interface.get_command();
+    
+    if (control_count_ == 0 && cmd.type == 'G') {
+        switch (cmd.mode) {
+            case 'P':
+                odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_TRAP_TRAJ);
+                break;
+            case 'V':
+                odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_VELOCITY_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
+                break;
+            case 'T':
+                odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_TORQUE_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
+                break;
+            default:
+                // default to position control if mode is unrecognized
+                odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_TRAP_TRAJ);
+        }
+    }
 
     if (cmd.type == 'G' && control_count_ < cmd.length) {
         odrive_mgr.set_active(1.0f);
@@ -42,8 +59,12 @@ void control_loop() {
         }
     } else if (cmd.type == 'S') {
         odrive_mgr.set_active(0.0f);
-        // Stop semantics TBD — matches original (no-op on motors).
         control_count_ = 0;
+
+        // hold position after stopping
+        odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
+        auto current_pos = odrive_mgr.get_position_feedback();
+        odrive_mgr.set_commands(current_pos);
     } else {
         odrive_mgr.set_active(0.0f);
         control_count_ = 0;

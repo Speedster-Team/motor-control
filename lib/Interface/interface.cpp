@@ -44,6 +44,7 @@ void SerialInterface::parse_header_line(char* line) {
         // stop command
         _cmd.length = 0;
         _cmd.repeat = 0;
+        _cmd.mode = ' ';
         return;
     } else if (_cmd.type == 'G') {
         Serial.println("Received go command");
@@ -54,6 +55,8 @@ void SerialInterface::parse_header_line(char* line) {
     _cmd.length = atoi(token);
     token = strtok(nullptr, " ");
     _cmd.repeat = atoi(token);
+    token = strtok(nullptr, " ");
+    _cmd.mode = token[0];
 }
 
 void SerialInterface::parse_data_line(char* line, int lineIdx) {

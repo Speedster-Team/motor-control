@@ -71,6 +71,8 @@ public:
 
     void set_velocity_limit(float velocity_limit);
 
+    void get_control_mode();
+
 
 private:
     // ODrive callbacks (free-function signatures, take user_data ptr).

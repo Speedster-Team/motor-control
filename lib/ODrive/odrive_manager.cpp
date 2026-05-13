@@ -226,3 +226,7 @@ void ODriveManager::set_velocity_limit(float velocity_limit) {
         motors_[i].odrive.setTrapezoidalVelLimit(velocity_limit);
     }
 }
+
+void ODriveManager::get_control_mode() {
+    return control_mode_;
+}
