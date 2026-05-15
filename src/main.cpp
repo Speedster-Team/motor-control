@@ -14,6 +14,7 @@ static TeensyTimerTool::PeriodicTimer feedback_timer(TeensyTimerTool::TCK);
 static TeensyTimerTool::PeriodicTimer mode_timer(TeensyTimerTool::TCK);
 
 static volatile int control_count_ = 0;
+static volatile float rotation_conversion_ = 6.28f;
 
 static std::array<float, 3> last_setpoint_ = {0.f, 0.f, 0.f};
 
@@ -26,12 +27,14 @@ void control_loop() {
         switch (cmd.mode) {
             case 'P':
                 odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
+                rotation_conversion_ = 6.28f;
                 break;
             case 'V':
                 odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_VELOCITY_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
                 break;
             case 'T':
                 odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_TORQUE_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
+                rotation_conversion_ = 1.0f;
                 break;
             default:
                 // default to position control if mode is unrecognized
@@ -44,9 +47,9 @@ void control_loop() {
         odrive_mgr.set_active(1.0f);
 
         std::array<float, odrive_mgr.kNumMotors> motor_cmd = {
-          interface._positions[control_count_][0]/ 6.28f, 
-          interface._positions[control_count_][1]/ 6.28f, 
-          interface._positions[control_count_][2]/ 6.28f};
+          interface._positions[control_count_][0] / rotation_conversion_, 
+          interface._positions[control_count_][1] / rotation_conversion_, 
+          interface._positions[control_count_][2] / rotation_conversion_};
 
         odrive_mgr.set_commands(motor_cmd);
 
@@ -69,6 +72,9 @@ void control_loop() {
         odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_POSITION_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
         auto current_pos = odrive_mgr.get_position_feedback();
         odrive_mgr.set_commands(current_pos);
+
+        auto cmd = Command{'A', 0, 0};
+        interface.set_command_type(cmd);
     } else {
         odrive_mgr.set_active(0.0f);
         control_count_ = 0;
@@ -95,7 +101,8 @@ void startup_procedure() {
   
   odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_VELOCITY_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH); 
   //float torque_threshold = 0.15f; // epirically determined threshold for "motor is ready"
-  std::array<float, 3> zero_angles = {-1.68f/6.28f, 1.22/6.28f, -0.896f/6.28f};
+  std::array<float, 3> zero_angles = {-1.68f/6.28f, -1.22/6.28f, 0.896f/6.28f};
+  //std::array<float, 3> zero_angles = {0.0f/6.28f, 0.0/6.28f, 0.0f/6.28f};
 
   // pip-dip 0
   Serial.println("splay 0");
@@ -107,7 +114,7 @@ void startup_procedure() {
   }
   // mcp 0
   Serial.println("mcp 0");
-  std::array<float, 3> cmd_2 = {0.0, 0.2f, 0.0f};
+  std::array<float, 3> cmd_2 = {0.0, -0.2f, 0.0f};
   odrive_mgr.set_commands(cmd_2);
 
   while(fabsf(odrive_mgr.get_torque_feedback()[1]) < 0.2) {
@@ -116,10 +123,10 @@ void startup_procedure() {
 
   // splay 0
   Serial.println("pip/dip 0");
-  std::array<float, 3> cmd_3 = {0.0f, 0.0f, 0.2f};
+  std::array<float, 3> cmd_3 = {0.0f, 0.0f, -0.2f};
   odrive_mgr.set_commands(cmd_3);
 
-  while(fabsf(odrive_mgr.get_torque_feedback()[2]) < 0.1) {
+  while(fabsf(odrive_mgr.get_torque_feedback()[2]) < 0.15) {
     delay(5);
   }
   auto encoder_offset = odrive_mgr.get_position_feedback();
