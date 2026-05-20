@@ -101,8 +101,8 @@ void startup_procedure() {
   
   odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_VELOCITY_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH); 
   //float torque_threshold = 0.15f; // epirically determined threshold for "motor is ready"
-  std::array<float, 3> zero_angles = {-1.68f/6.28f, -1.22/6.28f, 0.896f/6.28f};
-  //std::array<float, 3> zero_angles = {0.0f/6.28f, 0.0/6.28f, 0.0f/6.28f};
+  std::array<float, 3> zero_angles = {-1.68f/6.28f, 1.22/6.28f, -0.896f/6.28f};
+//   std::array<float, 3> zero_angles = {0.0f/6.28f, 0.0/6.28f, 0.0f/6.28f};
 
   // pip-dip 0
   Serial.println("splay 0");
@@ -114,7 +114,7 @@ void startup_procedure() {
   }
   // mcp 0
   Serial.println("mcp 0");
-  std::array<float, 3> cmd_2 = {0.0, -0.2f, 0.0f};
+  std::array<float, 3> cmd_2 = {0.0, 0.2f, 0.0f};
   odrive_mgr.set_commands(cmd_2);
 
   while(fabsf(odrive_mgr.get_torque_feedback()[1]) < 0.2) {
@@ -123,7 +123,7 @@ void startup_procedure() {
 
   // splay 0
   Serial.println("pip/dip 0");
-  std::array<float, 3> cmd_3 = {0.0f, 0.0f, -0.2f};
+  std::array<float, 3> cmd_3 = {0.0f, 0.0f, 0.2f};
   odrive_mgr.set_commands(cmd_3);
 
   while(fabsf(odrive_mgr.get_torque_feedback()[2]) < 0.15) {
