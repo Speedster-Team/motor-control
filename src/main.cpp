@@ -31,6 +31,7 @@ void control_loop() {
                 break;
             case 'V':
                 odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_VELOCITY_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
+                rotation_conversion_ = 6.28f;
                 break;
             case 'T':
                 odrive_mgr.set_control_mode(ODriveControlMode::CONTROL_MODE_TORQUE_CONTROL, ODriveInputMode::INPUT_MODE_PASSTHROUGH);
@@ -109,7 +110,7 @@ void startup_procedure() {
   std::array<float, 3> cmd = {-0.2, 0.0f, 0.0f};
   odrive_mgr.set_commands(cmd);
 
-  while(fabsf(odrive_mgr.get_torque_feedback()[0]) < 0.35) {
+  while(fabsf(odrive_mgr.get_torque_feedback()[0]) < 0.3) {
     delay(5);
   }
   // mcp 0
@@ -117,16 +118,16 @@ void startup_procedure() {
   std::array<float, 3> cmd_2 = {0.0, 0.2f, 0.0f};
   odrive_mgr.set_commands(cmd_2);
 
-  while(fabsf(odrive_mgr.get_torque_feedback()[1]) < 0.2) {
+  while(fabsf(odrive_mgr.get_torque_feedback()[1]) < 0.15) {
     delay(5);
   }
 
   // splay 0
   Serial.println("pip/dip 0");
-  std::array<float, 3> cmd_3 = {0.0f, 0.0f, 0.2f};
+  std::array<float, 3> cmd_3 = {-0.05f, 0.0f, 0.2f};
   odrive_mgr.set_commands(cmd_3);
 
-  while(fabsf(odrive_mgr.get_torque_feedback()[2]) < 0.15) {
+  while(fabsf(odrive_mgr.get_torque_feedback()[2]) < 0.08) {
     delay(5);
   }
   auto encoder_offset = odrive_mgr.get_position_feedback();

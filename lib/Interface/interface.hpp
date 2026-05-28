@@ -3,7 +3,7 @@
 #include <Arduino.h>
 
 #define MAX_LINE_LENGTH 64
-#define MAX_MESSAGE_LENGTH 1002
+#define MAX_MESSAGE_LENGTH 2002
 #define NUM_MOTORS 3
 
 struct Command {
